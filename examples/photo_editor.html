@@ -1,0 +1,152 @@
+<!--
+   
+   Copyright (c) 2020, the Regular Table Authors.
+   
+   This file is part of the Regular Table library, distributed under the terms of
+   the Apache License 2.0.  The full license can be found in the LICENSE file.
+
+-->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <script src="../umd/regular-table.js"></script>
+
+    <style>
+        body {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+          
+        }
+        /* #scroll_container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            overflow: auto;
+        } */
+        th {
+            max-width: 20px !important;
+            min-width: 20px !important;
+            transform: rotate(-90deg);
+            /* min-height: 20px !important; */
+        }
+        th, td {
+            height: 20px !important;
+            max-width: 20px !important;
+            min-width: 20px !important;
+        }
+        regular-table {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+          
+        }
+        /* #reticle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 1px solid white;
+        } */
+    </style>
+    </style>
+</head>
+
+<body>
+
+    <regular-table></regular-table>
+    <img id="ref_picture" crossorigin="anonymous" src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/STS120LaunchHiRes-edit1.jpg/440px-STS120LaunchHiRes-edit1.jpg"></img>
+
+    <script>
+
+        function* iter(x) {
+            for(let y = 0; y < x; y ++) {
+                yield y;
+            }
+        }
+
+        function get_canvas() {
+            var img = document.getElementById('ref_picture');
+            var canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
+            return canvas;
+        }
+        
+        let img_lock = false;
+        ref_picture.onload = () => {
+            img_lock?.();
+            img_lock = true;
+        }
+
+
+        window.addEventListener('DOMContentLoaded', async function () {
+            const table = document.getElementsByTagName('regular-table')[0];
+            if (!img_lock) {
+                await new Promise(result => {
+                    img_lock = result;
+                })
+            }
+            const canvas = get_canvas();
+            const context = canvas.getContext('2d');
+
+            document.body.removeChild(ref_picture);
+           // console.log(canvas.getContext('2d').getImageData(20, 20, 1, 1).data);
+            
+            table.addEventListener("regular-table-after-update", () => {
+                const tds = table.querySelectorAll("td");
+                for (const td of tds) {
+                    td.style.backgroundColor = td.innerHTML;
+                    td.innerHTML = "";
+                }
+            })
+
+            const column_names = Array.from(iter(canvas.width / 2)).map(x => `C${x}`);
+            
+
+            await table.set_view({
+                schema: async () => { 
+                    return {};
+                }
+            }, {
+                num_rows: async () => canvas.height / 2,
+                column_paths: async () => column_names,
+                get_config: async () => { 
+                    return {
+                         row_pivots: [], 
+                         column_pivots: [] 
+                    };
+                },
+                to_columns: ({start_row, end_row, start_col, end_col}) => {
+                    const columns = {};
+                    for (let i = start_col; i < end_col; i ++) {
+                        const column = columns[`C${i}`] = [];
+                        for (let j = start_row; j < end_row; j ++) {
+                            const [r, g, b] = context.getImageData(start_col + i, start_row + j, 1, 1).data
+                            column.push(`rgb(${r},${g},${b})`);
+                        }
+                    }
+                    return columns;
+                },
+                schema: async () => { 
+                    return {};
+                }
+            });
+            await table.draw();
+        });
+    </script>
+
+</body>
+
+</html>

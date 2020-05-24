@@ -1,0 +1,176 @@
+<!--
+   
+   Copyright (c) 2020, the Regular Table Authors.
+   
+   This file is part of the Regular Table library, distributed under the terms of
+   the Apache License 2.0.  The full license can be found in the LICENSE file.
+
+-->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <script src="../umd/regular-table.js"></script>
+
+    <style>
+        body {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            cursor: none;
+        }
+        #scroll_container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            overflow: auto;
+        }
+        th {
+            transform: rotate(-90deg);
+            color: white;
+            height: 50px;
+        }
+        th, td {
+            height: 20px !important;
+            min-width: 20px !important;
+            max-width: 20px !important;
+        }
+        regular-table {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 400px;
+            height: 400px;
+            pointer-events: none;
+            
+        }
+        regular-table > div {
+            overflow: hidden;
+            left: 0;
+            top: 0;
+            position: absolute;
+            border: 1px solid white;
+            bottom: 0;
+            right: 0;
+            border-top-width: 0;
+        }
+        regular-table::-webkit-scrollbar-thumb {
+            background-color: #fff !important;
+        }
+        #reticle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 1px solid white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="scroll_container">
+        <div id="reticle"></div>
+        <regular-table></regular-table>
+        <img id="ref_picture" crossorigin="anonymous" src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Marriage_A-la-Mode_2%2C_The_T%C3%AAte_%C3%A0_T%C3%AAte_-_William_Hogarth.jpg/2060px-Marriage_A-la-Mode_2%2C_The_T%C3%AAte_%C3%A0_T%C3%AAte_-_William_Hogarth.jpg"></img>
+    </div>
+    <script>
+
+        function* iter(x) {
+            for(let y = 0; y < x; y ++) {
+                yield y;
+            }
+        }
+
+        function get_canvas() {
+            var img = document.getElementById('ref_picture');
+            var canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
+            return canvas;
+        }
+        
+        let img_lock = false;
+        ref_picture.onload = () => {
+            img_lock?.();
+            img_lock = true;
+        }
+
+        window.addEventListener('DOMContentLoaded', async function () {
+            const table = document.getElementsByTagName('regular-table')[0];
+            if (!img_lock) {
+                await new Promise(result => {
+                    img_lock = result;
+                })
+            }
+            const canvas = get_canvas();
+            const context = canvas.getContext('2d');
+            scroll_container.removeChild(ref_picture);
+            scroll_container.appendChild(canvas);
+            
+            table.addEventListener("regular-table-after-update", () => {
+                const tds = table.querySelectorAll("td");
+                for (const td of tds) {
+                    td.style.backgroundColor = td.innerHTML;
+                    td.innerHTML = " ";
+                }
+            })
+
+            const column_names = Array.from(iter(canvas.width)).map(x => `C${x}`);
+            
+            await table.set_view({
+                schema: async () => { 
+                    return {};
+                }
+            }, {
+                num_rows: async () => canvas.height,
+                column_paths: async () => column_names,
+                get_config: async () => { 
+                    return {
+                         row_pivots: [], 
+                         column_pivots: [] 
+                    };
+                },
+                to_columns: ({start_row, end_row, start_col, end_col}) => {
+                    const columns = {};
+                  //  console.log("out", start_col, start_row);
+                    for (let i = start_col; i < end_col; i ++) {
+                        const column = columns[`C${i}`] = [];
+                        for (let j = start_row; j < end_row; j ++) {
+                            const [r, g, b] = context.getImageData(start_col + i, start_row + j, 1, 1).data
+                            column.push(`rgb(${r},${g},${b})`);
+                        }
+                    }
+                    return columns;
+                },
+                schema: async () => { 
+                    return {};
+                }
+            });
+            await table.draw();
+
+            window.addEventListener("mousemove", event => {
+                const x = event.clientX + scroll_container.scrollLeft;
+                const y = event.clientY + scroll_container.scrollTop;
+               // console.log("in ", x, y);                
+                reticle.style.top = `${y}px`;
+                reticle.style.left = `${x}px`;
+                table.style.top = `${y}px`;
+                table.style.left = `${x + 52}px`;
+                table.scrollTop = y * 11;
+                table.scrollLeft = x * 29.1;
+            })
+        });
+    </script>
+
+</body>
+
+</html>
