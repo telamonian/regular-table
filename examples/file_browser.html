@@ -64,12 +64,43 @@
             return contents;
         }
 
+        function rowSorterClosure(sort) {
+            // map sort direction string onto sort direction sign
+            const signs = sort.map(([col, dir]) => [col, dir.startsWith('desc') ? -1 : 1]);
+
+            return function rowSorter(lrow, rrow) {
+                for (const [col, sign] of signs) {
+                    let cmp;
+                    let lval = lrow[col];
+                    let rval = rrow[col];
+
+                    if (Array.isArray(lval)) {
+                        lval = lval.join('/');
+                        rval = rval.join('/');
+                    }
+
+                    if (typeof lval === 'string') {
+                        cmp = lval.localeCompare(rval);
+                    } else {
+                        cmp = lval - rval;
+                    }
+
+                    if (cmp) {
+                        return sign*cmp;
+                    }
+                }
+                return 0;
+            }
+        }
+
         let config = {
             column_pivots: [],
             row_pivots: ['path'],
+            sort: [['path', 'asc']],
         }
 
         let rows = getContents([], true).contents;
+        rows.sort(rowSorterClosure(config.sort));
 
         // for tree support
         async function collapse(rix) {
@@ -109,6 +140,20 @@
                 __config: config,
                 __expand: expand,
             };
+        }
+
+        // for sort support
+        file_browser_model.sorter = async sort => {
+            // temp fix for row_indices column name issue
+            sort = sort.map(([col, dir]) => [col ? col : 'path', dir]);
+
+            // use a default sort if none provided
+            sort = sort.length > 0 ? sort : [['path', 'asc']];
+
+            rows.sort(rowSorterClosure(sort));
+
+            // ensure that local config.sort is synced
+            config.sort = sort;
         }
 
         const table = document.getElementsByTagName('regular-table')[0];

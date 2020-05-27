@@ -51,6 +51,15 @@ export async function getCellConfig({view, config}, row_idx, col_idx) {
     return result;
 }
 
+export function incrementSortDir(sort_dir, abs_sorting) {
+    let sort_dirs = ["asc", "desc"];
+    if (abs_sorting) {
+        sort_dirs = sort_dirs.map((x) => `${x} abs`);
+    }
+    sort_dirs.push(null);
+    return sort_dirs[(sort_dirs.indexOf(sort_dir) + 1) % sort_dirs.length];
+}
+
 /******************************************************************************
  *
  * Profling

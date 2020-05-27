@@ -10,7 +10,7 @@
 
 import {METADATA_MAP} from "./constants";
 import {RegularVirtualTableViewModel} from "./scroll_panel";
-import {getCellConfig, throttlePromise, isEqual} from "./utils";
+import {getCellConfig, incrementSortDir, throttlePromise, isEqual} from "./utils";
 
 /**
  *
@@ -287,9 +287,15 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
         let sort = this._view_cache.config.sort.slice();
         const current_idx = sort.findIndex((x) => x[0] === metadata.column_name);
         if (current_idx > -1) {
-            const sort_dir = sort[current_idx][1];
-            const new_sort = this.parentElement._increment_sort(sort_dir, false, event.altKey);
-            sort[current_idx] = [metadata.column_name, new_sort];
+            const old_dir = sort[current_idx][1];
+            const sort_dir = incrementSortDir(old_dir, event.altKey);
+            if (sort_dir) {
+                // update the sort_dir
+                sort[current_idx] = [metadata.column_name, sort_dir];
+            } else {
+                // remove this column from the sort
+                sort.splice(current_idx, 1);
+            }
         } else {
             let sort_dir = event.altKey ? "asc abs" : "asc";
             const new_sort = [metadata.column_name, sort_dir];
@@ -299,6 +305,9 @@ export class RegularViewEventModel extends RegularVirtualTableViewModel {
                 sort = [new_sort];
             }
         }
-        this.parentElement.setAttribute("sort", JSON.stringify(sort));
+
+        await this._view_cache.view.sorter(sort);
+        this._view_cache.config.sort = sort;
+        await this.draw({invalid_viewport: true});
     }
 }
