@@ -1,4 +1,5 @@
 import babel from "@rollup/plugin-babel";
+import command from 'rollup-plugin-command';
 import filesize from "rollup-plugin-filesize";
 import livereload from "rollup-plugin-livereload";
 import postcss from "rollup-plugin-postcss";
@@ -7,6 +8,15 @@ import {terser} from "rollup-plugin-terser";
 
 export default (args) => {
     const watch = !!args.watch;
+
+    const pluginsDev = [
+        command("npm run start", {once: true}),
+        livereload(["dist", "example"]),
+    ];
+    const pluginsProd = [
+        terser(),
+    ];
+
     return [
         {
             input: "src/less/material.less",
@@ -37,13 +47,13 @@ export default (args) => {
                     babelHelpers: "bundled",
                 }),
                 filesize(),
-                watch ? livereload("dist") : terser(),
                 postcss({
                     inject: false,
                     sourceMap: watch,
                     minimize: !watch,
                 }),
                 sourcemaps(),
+                ...(watch ? pluginsDev : pluginsProd),
             ].filter((x) => x),
             watch: {
                 clearScreen: false,
